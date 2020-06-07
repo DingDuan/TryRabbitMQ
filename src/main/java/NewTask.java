@@ -6,7 +6,7 @@ import com.rabbitmq.client.MessageProperties;
 import java.nio.charset.StandardCharsets;
 
 public class NewTask {
-    private final static String QUEUE_NAME = "hello";
+    private final static String TASK_QUEUE_NAME = "task_queue";
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
@@ -14,18 +14,19 @@ public class NewTask {
              Channel channel = connection.createChannel()) {
             boolean durable = true;
 
-            channel.queueDeclare(QUEUE_NAME, durable, false, false, null);
-
             //define a different queue to be durable
-            channel.queueDeclare("task_queue", durable, false, false, null);
+            channel.queueDeclare(TASK_QUEUE_NAME, durable, false, false, null);
 
             String message = String.join(" ", argv);
 
-            channel.basicPublish("", "hello", null, message.getBytes());
-
-            channel.basicPublish("", "task_queue",
+            channel.basicPublish("", TASK_QUEUE_NAME,
                     MessageProperties.PERSISTENT_TEXT_PLAIN,
                     message.getBytes());
+
+            //don't dispatch a new message to a worker until it has processed and acknowledged the previous one
+            int prefetchCount = 1;
+            channel.basicQos(prefetchCount);
+
             System.out.println(" [x] Sent '" + message + "'");
         }
     }
